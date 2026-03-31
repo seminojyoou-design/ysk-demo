@@ -8,7 +8,6 @@
 <meta name="apple-mobile-web-app-title" content="YSK管理">
 <meta name="theme-color" content="#0f1117">
 <title>YSKサポート 養生資材レンタル管理システム</title>
-<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%233b82f6' width='100' height='100' rx='20'/><text x='50' y='68' font-size='50' text-anchor='middle' fill='white' font-weight='bold'>Y</text></svg>">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { background: #0f1117; overflow: hidden; }
@@ -1632,7 +1631,7 @@ function App() {
     <div style={{
       minHeight: "100vh", background: COLORS.bg, color: COLORS.text,
       fontFamily: "'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif",
-      paddingBottom: isMobile ? 64 : 0,
+      paddingBottom: isMobile ? 76 : 0,
     }}>
       {/* Header */}
       <div style={{
@@ -1689,7 +1688,7 @@ function App() {
         )}
 
         {/* Main Content */}
-        <div style={{ flex: 1, padding: isMobile ? 12 : isTablet ? 16 : 24, overflowY: "auto", maxHeight: isMobile ? "calc(100vh - 48px - 64px)" : "calc(100vh - 56px)" }}>
+        <div style={{ flex: 1, padding: isMobile ? 12 : isTablet ? 16 : 24, overflowY: "auto", maxHeight: isMobile ? "calc(100vh - 48px - 76px)" : "calc(100vh - 56px)" }}>
           <div style={{ marginBottom: isMobile ? 12 : 20 }}>
             <h1 style={{ fontSize: isMobile ? 16 : 20, fontWeight: 700, margin: 0, color: COLORS.text }}>
               {TABS.find(t => t.id === activeTab)?.icon} {TABS.find(t => t.id === activeTab)?.label}
@@ -1708,9 +1707,10 @@ function App() {
       {/* Bottom Tab Bar - Mobile only */}
       {isMobile && (
         <div style={{
-          position: "fixed", bottom: 0, left: 0, right: 0, height: 64,
+          position: "fixed", bottom: 0, left: 0, right: 0, height: 76,
           background: COLORS.surface, borderTop: `1px solid ${COLORS.border}`,
           display: "flex", alignItems: "center", justifyContent: "space-around",
+          paddingBottom: 14,
           zIndex: 100,
         }}>
           {TABS.map(tab => (
