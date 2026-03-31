@@ -1,0 +1,1742 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="YSK管理">
+<meta name="theme-color" content="#0f1117">
+<title>YSKサポート 養生資材レンタル管理システム</title>
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%233b82f6' width='100' height='100' rx='20'/><text x='50' y='68' font-size='50' text-anchor='middle' fill='white' font-weight='bold'>Y</text></svg>">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f1117; overflow: hidden; }
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap');
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+// ============================================================
+// YSKサポート 養生資材レンタル管理システム
+// ============================================================
+
+const useWindowSize = () => {
+  const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight });
+  useEffect(() => {
+    const handle = () => setSize({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener("resize", handle);
+    return () => window.removeEventListener("resize", handle);
+  }, []);
+  return size;
+};
+
+
+const COLORS = {
+  bg: "#0f1117",
+  surface: "#1a1d27",
+  surfaceAlt: "#222635",
+  border: "#2d3148",
+  borderLight: "#3d4268",
+  text: "#e8eaf0",
+  textMuted: "#8b90a8",
+  textDim: "#5c6180",
+  primary: "#3b82f6",
+  primaryDark: "#2563eb",
+  primaryGlow: "rgba(59,130,246,0.15)",
+  accent: "#f59e0b",
+  accentGlow: "rgba(245,158,11,0.15)",
+  success: "#10b981",
+  successGlow: "rgba(16,185,129,0.12)",
+  warning: "#f59e0b",
+  warningGlow: "rgba(245,158,11,0.12)",
+  danger: "#ef4444",
+  dangerGlow: "rgba(239,68,68,0.12)",
+  info: "#6366f1",
+};
+
+// --- Sample Data ---
+const initialMaterials = [
+  { id: "M001", name: "エレベーター壁面パネル", category: "壁面", stock: 120, rented: 45, unit: "枚", price: 300 },
+  { id: "M002", name: "床養生マット（厚手）", category: "床面", stock: 200, rented: 88, unit: "枚", price: 200 },
+  { id: "M003", name: "ドア枠プロテクター", category: "ドア", stock: 80, rented: 32, unit: "個", price: 250 },
+  { id: "M004", name: "天井養生シート", category: "天井", stock: 60, rented: 15, unit: "枚", price: 350 },
+  { id: "M005", name: "コーナーガード L型", category: "角部", stock: 150, rented: 62, unit: "本", price: 150 },
+  { id: "M006", name: "養生テープ 幅広", category: "副資材", stock: 500, rented: 180, unit: "巻", price: 80 },
+  { id: "M007", name: "エレベーター床板", category: "床面", stock: 90, rented: 38, unit: "枚", price: 400 },
+  { id: "M008", name: "手すりカバー", category: "内装", stock: 100, rented: 28, unit: "本", price: 180 },
+];
+
+const initialCustomers = [
+  { id: "C001", name: "大成建設 名古屋支店", contact: "田中太郎", phone: "052-555-0101", email: "tanaka@taisei.co.jp", activeRentals: 3 },
+  { id: "C002", name: "鹿島建設 中部営業所", contact: "山田花子", phone: "052-555-0202", email: "yamada@kajima.co.jp", activeRentals: 2 },
+  { id: "C003", name: "竹中工務店 東海支店", contact: "佐藤次郎", phone: "052-555-0303", email: "sato@takenaka.co.jp", activeRentals: 1 },
+  { id: "C004", name: "清水建設 名古屋支店", contact: "鈴木三郎", phone: "052-555-0404", email: "suzuki@shimizu.co.jp", activeRentals: 2 },
+  { id: "C005", name: "大林組 中部支店", contact: "高橋美咲", phone: "052-555-0505", email: "takahashi@obayashi.co.jp", activeRentals: 0 },
+];
+
+const initialRentals = [
+  { id: "R001", customerId: "C001", customerName: "大成建設 名古屋支店", site: "栄タワー新築工事", items: [
+    { materialId: "M001", name: "エレベーター壁面パネル", qty: 20, unit: "枚", price: 300 },
+    { materialId: "M002", name: "床養生マット（厚手）", qty: 30, unit: "枚", price: 200 },
+  ], startDate: "2026-03-01", endDate: "2026-04-30", status: "貸出中", dailyTotal: 12000 },
+  { id: "R002", customerId: "C001", customerName: "大成建設 名古屋支店", site: "名駅再開発B棟", items: [
+    { materialId: "M003", name: "ドア枠プロテクター", qty: 12, unit: "個", price: 250 },
+    { materialId: "M005", name: "コーナーガード L型", qty: 24, unit: "本", price: 150 },
+  ], startDate: "2026-02-15", endDate: "2026-03-31", status: "返却予定", dailyTotal: 6600 },
+  { id: "R003", customerId: "C002", customerName: "鹿島建設 中部営業所", site: "金山複合施設", items: [
+    { materialId: "M001", name: "エレベーター壁面パネル", qty: 15, unit: "枚", price: 300 },
+    { materialId: "M004", name: "天井養生シート", qty: 10, unit: "枚", price: 350 },
+    { materialId: "M007", name: "エレベーター床板", qty: 8, unit: "枚", price: 400 },
+  ], startDate: "2026-03-10", endDate: "2026-05-31", status: "貸出中", dailyTotal: 11200 },
+  { id: "R004", customerId: "C002", customerName: "鹿島建設 中部営業所", site: "千種駅前ビル改修", items: [
+    { materialId: "M002", name: "床養生マット（厚手）", qty: 40, unit: "枚", price: 200 },
+    { materialId: "M006", name: "養生テープ 幅広", qty: 100, unit: "巻", price: 80 },
+  ], startDate: "2026-01-20", endDate: "2026-03-20", status: "延滞", dailyTotal: 16000 },
+  { id: "R005", customerId: "C003", customerName: "竹中工務店 東海支店", site: "伏見オフィス内装", items: [
+    { materialId: "M008", name: "手すりカバー", qty: 16, unit: "本", price: 180 },
+    { materialId: "M005", name: "コーナーガード L型", qty: 20, unit: "本", price: 150 },
+  ], startDate: "2026-03-05", endDate: "2026-04-15", status: "貸出中", dailyTotal: 5880 },
+  { id: "R006", customerId: "C004", customerName: "清水建設 名古屋支店", site: "熱田神宮前マンション", items: [
+    { materialId: "M001", name: "エレベーター壁面パネル", qty: 10, unit: "枚", price: 300 },
+    { materialId: "M002", name: "床養生マット（厚手）", qty: 18, unit: "枚", price: 200 },
+    { materialId: "M003", name: "ドア枠プロテクター", qty: 20, unit: "個", price: 250 },
+  ], startDate: "2026-02-01", endDate: "2026-03-28", status: "返却予定", dailyTotal: 11600 },
+  { id: "R007", customerId: "C004", customerName: "清水建設 名古屋支店", site: "緑区物流倉庫", items: [
+    { materialId: "M007", name: "エレベーター床板", qty: 30, unit: "枚", price: 400 },
+    { materialId: "M006", name: "養生テープ 幅広", qty: 80, unit: "巻", price: 80 },
+  ], startDate: "2026-03-15", endDate: "2026-06-30", status: "貸出中", dailyTotal: 18400 },
+];
+
+const fmt = (n) => n.toLocaleString("ja-JP");
+
+const statusConfig = {
+  "貸出中": { bg: COLORS.primaryGlow, color: COLORS.primary, border: "rgba(59,130,246,0.3)" },
+  "返却予定": { bg: COLORS.warningGlow, color: COLORS.warning, border: "rgba(245,158,11,0.3)" },
+  "延滞": { bg: COLORS.dangerGlow, color: COLORS.danger, border: "rgba(239,68,68,0.3)" },
+  "返却済": { bg: COLORS.successGlow, color: COLORS.success, border: "rgba(16,185,129,0.3)" },
+};
+
+const StatusBadge = ({ status }) => {
+  const c = statusConfig[status] || statusConfig["貸出中"];
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 6,
+      padding: "4px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600,
+      background: c.bg, color: c.color, border: `1px solid ${c.border}`,
+    }}>
+      <span style={{ width: 6, height: 6, borderRadius: "50%", background: c.color }} />
+      {status}
+    </span>
+  );
+};
+
+// --- Tabs ---
+const TABS = [
+  { id: "dashboard", label: "ダッシュボード", icon: "📊" },
+  { id: "tasks", label: "タスク管理", icon: "✅" },
+  { id: "rentals", label: "レンタル管理", icon: "📋" },
+  { id: "inventory", label: "在庫管理", icon: "📦" },
+  { id: "customers", label: "顧客管理", icon: "🏢" },
+  { id: "changelog", label: "変更履歴", icon: "🕐" },
+];
+
+// --- Dashboard ---
+const Dashboard = ({ rentals, materials }) => {
+  const activeRentals = rentals.filter(r => r.status === "貸出中").length;
+  const overdueRentals = rentals.filter(r => r.status === "延滞").length;
+  const returningRentals = rentals.filter(r => r.status === "返却予定").length;
+  const monthlyRevenue = rentals.filter(r => r.status !== "返却済").reduce((sum, r) => {
+    const days = Math.ceil((new Date(r.endDate) - new Date(r.startDate)) / (1000 * 60 * 60 * 24));
+    return sum + r.dailyTotal * days;
+  }, 0);
+  const totalRented = materials.reduce((sum, m) => sum + m.rented, 0);
+  const totalStock = materials.reduce((sum, m) => sum + m.stock, 0);
+  const utilizationRate = Math.round((totalRented / totalStock) * 100);
+
+  const kpis = [
+    { label: "貸出中", value: activeRentals, suffix: "件", color: COLORS.primary, glow: COLORS.primaryGlow },
+    { label: "返却予定", value: returningRentals, suffix: "件", color: COLORS.warning, glow: COLORS.warningGlow },
+    { label: "延滞中", value: overdueRentals, suffix: "件", color: COLORS.danger, glow: COLORS.dangerGlow },
+    { label: "稼働率", value: utilizationRate, suffix: "%", color: COLORS.success, glow: COLORS.successGlow },
+  ];
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* KPI Cards */}
+      <div style={{ display: "grid", gridTemplateColumns: window.innerWidth < 768 ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: window.innerWidth < 768 ? 8 : 14 }}>
+        {kpis.map((k, i) => (
+          <div key={i} style={{
+            background: COLORS.surface, borderRadius: 12, padding: window.innerWidth < 768 ? "14px 12px" : "20px 18px",
+            border: `1px solid ${COLORS.border}`, position: "relative", overflow: "hidden",
+          }}>
+            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: k.color }} />
+            <div style={{ fontSize: window.innerWidth < 768 ? 11 : 12, color: COLORS.textMuted, marginBottom: 8, fontWeight: 500 }}>{k.label}</div>
+            <div style={{ fontSize: window.innerWidth < 768 ? 24 : 32, fontWeight: 700, color: k.color, letterSpacing: "-0.02em" }}>
+              {k.value}<span style={{ fontSize: window.innerWidth < 768 ? 11 : 14, marginLeft: 4, fontWeight: 500 }}>{k.suffix}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Revenue Card */}
+      <div style={{
+        background: `linear-gradient(135deg, ${COLORS.surface}, ${COLORS.surfaceAlt})`,
+        borderRadius: 12, padding: 24, border: `1px solid ${COLORS.border}`,
+      }}>
+        <div style={{ fontSize: 12, color: COLORS.textMuted, marginBottom: 6, fontWeight: 500 }}>今期レンタル売上（税抜概算）</div>
+        <div style={{ fontSize: 38, fontWeight: 700, color: COLORS.text, letterSpacing: "-0.02em" }}>
+          ¥{fmt(monthlyRevenue)}
+        </div>
+        <div style={{ marginTop: 16, display: "flex", gap: 24 }}>
+          <div>
+            <div style={{ fontSize: 11, color: COLORS.textDim }}>総在庫数</div>
+            <div style={{ fontSize: 18, fontWeight: 600, color: COLORS.text }}>{fmt(totalStock)}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: COLORS.textDim }}>貸出中</div>
+            <div style={{ fontSize: 18, fontWeight: 600, color: COLORS.primary }}>{fmt(totalRented)}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: COLORS.textDim }}>空き在庫</div>
+            <div style={{ fontSize: 18, fontWeight: 600, color: COLORS.success }}>{fmt(totalStock - totalRented)}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Utilization Bar Chart */}
+      <div style={{
+        background: COLORS.surface, borderRadius: 12, padding: 24,
+        border: `1px solid ${COLORS.border}`,
+      }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.text, marginBottom: 16 }}>資材カテゴリ別 稼働率</div>
+        {(() => {
+          const categories = {};
+          materials.forEach(m => {
+            if (!categories[m.category]) categories[m.category] = { stock: 0, rented: 0 };
+            categories[m.category].stock += m.stock;
+            categories[m.category].rented += m.rented;
+          });
+          return Object.entries(categories).map(([cat, data]) => {
+            const rate = Math.round((data.rented / data.stock) * 100);
+            const barColor = rate > 70 ? COLORS.danger : rate > 50 ? COLORS.warning : COLORS.primary;
+            return (
+              <div key={cat} style={{ marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, color: COLORS.textMuted }}>{cat}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: barColor }}>{rate}%</span>
+                </div>
+                <div style={{ height: 8, background: COLORS.surfaceAlt, borderRadius: 4, overflow: "hidden" }}>
+                  <div style={{
+                    height: "100%", width: `${rate}%`, background: barColor,
+                    borderRadius: 4, transition: "width 0.8s ease",
+                  }} />
+                </div>
+              </div>
+            );
+          });
+        })()}
+      </div>
+
+      {/* Overdue Alert */}
+      {overdueRentals > 0 && (
+        <div style={{
+          background: COLORS.dangerGlow, borderRadius: 12, padding: 18,
+          border: `1px solid rgba(239,68,68,0.3)`, display: "flex", alignItems: "center", gap: 12,
+        }}>
+          <span style={{ fontSize: 24 }}>⚠️</span>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.danger }}>延滞中のレンタルがあります</div>
+            <div style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 2 }}>
+              {rentals.filter(r => r.status === "延滞").map(r => `${r.customerName}（${r.site}）`).join("、")}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- Rental Management ---
+const RentalManagement = ({ rentals, setRentals }) => {
+  const [filter, setFilter] = useState("すべて");
+  const [showForm, setShowForm] = useState(false);
+  const [selectedRental, setSelectedRental] = useState(null);
+  const filters = ["すべて", "貸出中", "返却予定", "延滞", "返却済"];
+
+  const filtered = filter === "すべて" ? rentals : rentals.filter(r => r.status === filter);
+
+  const handleReturn = (id) => {
+    setRentals(prev => prev.map(r => r.id === id ? { ...r, status: "返却済" } : r));
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Filter */}
+      <div style={{ display: "flex", gap: 6, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+        {filters.map(f => (
+          <button key={f} onClick={() => setFilter(f)} style={{
+            padding: "6px 12px", borderRadius: 8, border: "none", cursor: "pointer",
+            fontSize: 12, fontWeight: 600, transition: "all 0.2s", whiteSpace: "nowrap",
+            background: filter === f ? COLORS.primary : COLORS.surfaceAlt,
+            color: filter === f ? "#fff" : COLORS.textMuted,
+          }}>
+            {f}
+            {f !== "すべて" && (
+              <span style={{ marginLeft: 4, opacity: 0.7 }}>
+                {rentals.filter(r => r.status === f).length}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+      <button onClick={() => setShowForm(!showForm)} style={{
+        padding: "8px 18px", borderRadius: 8, border: "none", cursor: "pointer",
+        fontSize: 13, fontWeight: 600, background: COLORS.primary, color: "#fff", width: "100%",
+      }}>
+        ＋ 新規貸出
+      </button>
+
+      {/* New Rental Form */}
+      {showForm && <NewRentalForm onClose={() => setShowForm(false)} setRentals={setRentals} />}
+
+      {/* Rental Cards */}
+      {filtered.map(rental => (
+        <div key={rental.id} onClick={() => setSelectedRental(selectedRental === rental.id ? null : rental.id)}
+          style={{
+            background: COLORS.surface, borderRadius: 12, border: `1px solid ${COLORS.border}`,
+            overflow: "hidden", cursor: "pointer", transition: "all 0.2s",
+          }}>
+          <div style={{ padding: "16px 20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: COLORS.text }}>{rental.customerName}</div>
+                <div style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 2 }}>📍 {rental.site}</div>
+              </div>
+              <StatusBadge status={rental.status} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: COLORS.textMuted }}>
+              <span>📅 {rental.startDate} 〜 {rental.endDate}</span>
+              <span>💰 日額 ¥{fmt(rental.dailyTotal)}</span>
+              <span>📦 {rental.items.length}品目</span>
+            </div>
+          </div>
+
+          {/* Expanded Detail */}
+          {selectedRental === rental.id && (
+            <div style={{ borderTop: `1px solid ${COLORS.border}`, padding: "14px 20px", background: COLORS.surfaceAlt }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ fontSize: 11, color: COLORS.textDim, textAlign: "left" }}>
+                    <th style={{ padding: "6px 0" }}>資材名</th>
+                    <th style={{ padding: "6px 0", textAlign: "right" }}>数量</th>
+                    <th style={{ padding: "6px 0", textAlign: "right" }}>単価/日</th>
+                    <th style={{ padding: "6px 0", textAlign: "right" }}>小計/日</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rental.items.map((item, i) => (
+                    <tr key={i} style={{ fontSize: 13, color: COLORS.text }}>
+                      <td style={{ padding: "6px 0" }}>{item.name}</td>
+                      <td style={{ padding: "6px 0", textAlign: "right" }}>{item.qty}{item.unit}</td>
+                      <td style={{ padding: "6px 0", textAlign: "right" }}>¥{fmt(item.price)}</td>
+                      <td style={{ padding: "6px 0", textAlign: "right", fontWeight: 600 }}>¥{fmt(item.qty * item.price)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {rental.status !== "返却済" && (
+                <div style={{ marginTop: 12, display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <button onClick={(e) => { e.stopPropagation(); handleReturn(rental.id); }} style={{
+                    padding: "6px 16px", borderRadius: 6, border: "none", cursor: "pointer",
+                    fontSize: 12, fontWeight: 600, background: COLORS.success, color: "#fff",
+                  }}>返却処理</button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// --- New Rental Form ---
+const NewRentalForm = ({ onClose, setRentals }) => {
+  const [form, setForm] = useState({
+    customerName: "", site: "", startDate: "2026-03-25", endDate: "2026-04-30",
+    items: [{ name: "エレベーター壁面パネル", qty: 10, unit: "枚", price: 300 }],
+  });
+
+  const handleAddItem = () => {
+    setForm(prev => ({ ...prev, items: [...prev.items, { name: "", qty: 1, unit: "枚", price: 0 }] }));
+  };
+
+  const handleSubmit = () => {
+    if (!form.customerName || !form.site) return;
+    const dailyTotal = form.items.reduce((sum, i) => sum + i.qty * i.price, 0);
+    const newRental = {
+      id: `R${String(Date.now()).slice(-3)}`,
+      customerId: "NEW",
+      customerName: form.customerName,
+      site: form.site,
+      items: form.items,
+      startDate: form.startDate,
+      endDate: form.endDate,
+      status: "貸出中",
+      dailyTotal,
+    };
+    setRentals(prev => [newRental, ...prev]);
+    onClose();
+  };
+
+  const inputStyle = {
+    width: "100%", padding: "8px 12px", borderRadius: 8, fontSize: 13,
+    background: COLORS.surfaceAlt, border: `1px solid ${COLORS.border}`,
+    color: COLORS.text, outline: "none", boxSizing: "border-box",
+  };
+  const labelStyle = { fontSize: 11, color: COLORS.textMuted, marginBottom: 4, display: "block", fontWeight: 500 };
+
+  return (
+    <div style={{
+      background: COLORS.surface, borderRadius: 12, padding: 20,
+      border: `1px solid ${COLORS.primaryGlow}`, borderTop: `3px solid ${COLORS.primary}`,
+    }}>
+      <div style={{ fontSize: 15, fontWeight: 600, color: COLORS.text, marginBottom: 16 }}>新規貸出登録</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+        <div>
+          <label style={labelStyle}>顧客名</label>
+          <input style={inputStyle} placeholder="例：大成建設 名古屋支店"
+            value={form.customerName} onChange={e => setForm(p => ({ ...p, customerName: e.target.value }))} />
+        </div>
+        <div>
+          <label style={labelStyle}>現場名</label>
+          <input style={inputStyle} placeholder="例：栄タワー新築工事"
+            value={form.site} onChange={e => setForm(p => ({ ...p, site: e.target.value }))} />
+        </div>
+        <div>
+          <label style={labelStyle}>貸出開始日</label>
+          <input type="date" style={inputStyle} value={form.startDate}
+            onChange={e => setForm(p => ({ ...p, startDate: e.target.value }))} />
+        </div>
+        <div>
+          <label style={labelStyle}>返却予定日</label>
+          <input type="date" style={inputStyle} value={form.endDate}
+            onChange={e => setForm(p => ({ ...p, endDate: e.target.value }))} />
+        </div>
+      </div>
+
+      <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.textMuted, marginBottom: 8 }}>貸出品目</div>
+      {form.items.map((item, i) => (
+        <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr auto", gap: 8, marginBottom: 8, alignItems: "end" }}>
+          <div>
+            {i === 0 && <label style={labelStyle}>資材名</label>}
+            <input style={inputStyle} value={item.name}
+              onChange={e => { const items = [...form.items]; items[i].name = e.target.value; setForm(p => ({ ...p, items })); }} />
+          </div>
+          <div>
+            {i === 0 && <label style={labelStyle}>数量</label>}
+            <input type="number" style={inputStyle} value={item.qty}
+              onChange={e => { const items = [...form.items]; items[i].qty = Number(e.target.value); setForm(p => ({ ...p, items })); }} />
+          </div>
+          <div>
+            {i === 0 && <label style={labelStyle}>単位</label>}
+            <input style={inputStyle} value={item.unit}
+              onChange={e => { const items = [...form.items]; items[i].unit = e.target.value; setForm(p => ({ ...p, items })); }} />
+          </div>
+          <div>
+            {i === 0 && <label style={labelStyle}>単価/日</label>}
+            <input type="number" style={inputStyle} value={item.price}
+              onChange={e => { const items = [...form.items]; items[i].price = Number(e.target.value); setForm(p => ({ ...p, items })); }} />
+          </div>
+          {form.items.length > 1 && (
+            <button onClick={() => setForm(p => ({ ...p, items: p.items.filter((_, idx) => idx !== i) }))}
+              style={{ padding: "8px", background: "transparent", border: "none", color: COLORS.danger, cursor: "pointer", fontSize: 16 }}>✕</button>
+          )}
+        </div>
+      ))}
+      <button onClick={handleAddItem} style={{
+        padding: "6px 12px", borderRadius: 6, border: `1px dashed ${COLORS.border}`,
+        background: "transparent", color: COLORS.textMuted, cursor: "pointer", fontSize: 12, marginBottom: 16,
+      }}>＋ 品目を追加</button>
+
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+        <button onClick={onClose} style={{
+          padding: "8px 18px", borderRadius: 8, border: `1px solid ${COLORS.border}`,
+          background: "transparent", color: COLORS.textMuted, cursor: "pointer", fontSize: 13,
+        }}>キャンセル</button>
+        <button onClick={handleSubmit} style={{
+          padding: "8px 18px", borderRadius: 8, border: "none",
+          background: COLORS.primary, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600,
+        }}>登録する</button>
+      </div>
+    </div>
+  );
+};
+
+// --- Editable Cell ---
+const EditableCell = ({ value, unit, suffix, onChange, align, color, fontWeight }) => {
+  const [editing, setEditing] = useState(false);
+  const [tempVal, setTempVal] = useState(value);
+  const inputRef = useRef(null);
+
+  useEffect(() => { if (editing && inputRef.current) inputRef.current.focus(); }, [editing]);
+
+  const handleConfirm = () => {
+    const num = Number(tempVal);
+    if (!isNaN(num) && num >= 0) onChange(num);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <td style={{ padding: "6px 8px", textAlign: align || "right" }}>
+        <input ref={inputRef} type="number" value={tempVal}
+          onChange={e => setTempVal(e.target.value)}
+          onBlur={handleConfirm}
+          onKeyDown={e => { if (e.key === "Enter") handleConfirm(); if (e.key === "Escape") setEditing(false); }}
+          style={{
+            width: 70, padding: "4px 8px", borderRadius: 6, fontSize: 13, textAlign: "right",
+            background: COLORS.primaryGlow, border: `1px solid ${COLORS.primary}`,
+            color: COLORS.text, outline: "none", fontWeight: 600,
+          }}
+        />
+      </td>
+    );
+  }
+
+  return (
+    <td onClick={() => { setTempVal(value); setEditing(true); }}
+      style={{
+        padding: "10px 12px", fontSize: 13, textAlign: align || "right", cursor: "pointer",
+        color: color || COLORS.text, fontWeight: fontWeight || 400,
+        borderRadius: 4, transition: "background 0.15s",
+      }}
+      onMouseEnter={e => e.currentTarget.style.background = COLORS.primaryGlow}
+      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+      title="クリックで編集"
+    >
+      {suffix}{fmt(value)}{unit || ""}
+    </td>
+  );
+};
+
+// --- Inventory ---
+const Inventory = ({ materials, setMaterials }) => {
+  const [sortKey, setSortKey] = useState(null);
+  const [sortDir, setSortDir] = useState("asc");
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newItem, setNewItem] = useState({ name: "", category: "壁面", stock: 0, rented: 0, unit: "枚", price: 0 });
+
+  const handleSort = (key) => {
+    if (sortKey === key) { setSortDir(d => d === "asc" ? "desc" : "asc"); }
+    else { setSortKey(key); setSortDir("asc"); }
+  };
+
+  const updateMaterial = (id, field, value) => {
+    setMaterials(prev => prev.map(m => m.id === id ? { ...m, [field]: value } : m));
+  };
+
+  const deleteMaterial = (id) => {
+    setMaterials(prev => prev.filter(m => m.id !== id));
+  };
+
+  const handleAddItem = () => {
+    if (!newItem.name) return;
+    const newId = `M${String(materials.length + 1).padStart(3, "0")}`;
+    setMaterials(prev => [...prev, { ...newItem, id: newId }]);
+    setNewItem({ name: "", category: "壁面", stock: 0, rented: 0, unit: "枚", price: 0 });
+    setShowAddForm(false);
+  };
+
+  const sorted = [...materials].sort((a, b) => {
+    if (!sortKey) return 0;
+    const va = a[sortKey], vb = b[sortKey];
+    return sortDir === "asc" ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+  });
+
+  const categories = ["壁面", "床面", "ドア", "天井", "角部", "副資材", "内装", "その他"];
+
+  const headerStyle = (key) => ({
+    padding: "10px 12px", textAlign: "left", fontSize: 11, fontWeight: 600,
+    color: sortKey === key ? COLORS.primary : COLORS.textDim,
+    cursor: "pointer", userSelect: "none", whiteSpace: "nowrap",
+    borderBottom: `1px solid ${COLORS.border}`,
+  });
+
+  const addInputStyle = {
+    padding: "8px 12px", borderRadius: 8, fontSize: 13,
+    background: COLORS.surfaceAlt, border: `1px solid ${COLORS.border}`,
+    color: COLORS.text, outline: "none", boxSizing: "border-box",
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* Add Material Form */}
+      {showAddForm && (
+        <div style={{
+          background: COLORS.surface, borderRadius: 12, padding: 20,
+          border: `1px solid ${COLORS.primaryGlow}`, borderTop: `3px solid ${COLORS.primary}`,
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: COLORS.text }}>資材を追加</div>
+            <button onClick={() => setShowAddForm(false)} style={{
+              padding: "6px 10px", borderRadius: 8, border: `1px solid ${COLORS.danger}`,
+              background: COLORS.dangerGlow, color: COLORS.danger, cursor: "pointer", fontSize: 12, fontWeight: 600,
+            }}>✕</button>
+          </div>
+          {/* Row 1: Name + Category */}
+          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10, marginBottom: 10 }}>
+            <div>
+              <label style={{ fontSize: 11, color: COLORS.textMuted, display: "block", marginBottom: 4 }}>資材名</label>
+              <input style={{ ...addInputStyle, width: "100%" }} placeholder="例：養生ボード" value={newItem.name}
+                onChange={e => setNewItem(p => ({ ...p, name: e.target.value }))} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: COLORS.textMuted, display: "block", marginBottom: 4 }}>カテゴリ</label>
+              <select style={{ ...addInputStyle, width: "100%" }} value={newItem.category}
+                onChange={e => setNewItem(p => ({ ...p, category: e.target.value }))}>
+                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+          {/* Row 2: Stock + Unit + Price + Add */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
+            <div>
+              <label style={{ fontSize: 11, color: COLORS.textMuted, display: "block", marginBottom: 4 }}>総在庫</label>
+              <input type="number" style={{ ...addInputStyle, width: "100%" }} value={newItem.stock}
+                onChange={e => setNewItem(p => ({ ...p, stock: Number(e.target.value) }))} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: COLORS.textMuted, display: "block", marginBottom: 4 }}>単位</label>
+              <input style={{ ...addInputStyle, width: "100%" }} value={newItem.unit}
+                onChange={e => setNewItem(p => ({ ...p, unit: e.target.value }))} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: COLORS.textMuted, display: "block", marginBottom: 4 }}>単価/日</label>
+              <input type="number" style={{ ...addInputStyle, width: "100%" }} value={newItem.price}
+                onChange={e => setNewItem(p => ({ ...p, price: Number(e.target.value) }))} />
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-end" }}>
+              <button onClick={handleAddItem} style={{
+                padding: "8px 0", borderRadius: 8, border: "none", cursor: "pointer",
+                fontSize: 12, fontWeight: 600, background: COLORS.primary, color: "#fff", width: "100%",
+              }}>追加</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{
+        background: COLORS.surface, borderRadius: 12, border: `1px solid ${COLORS.border}`, overflow: "hidden",
+      }}>
+        <div style={{ padding: "16px 20px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: COLORS.text }}>資材在庫一覧</div>
+            <div style={{ fontSize: 11, color: COLORS.textDim, marginTop: 2 }}>数字をクリックすると直接編集できます</div>
+          </div>
+          <button onClick={() => setShowAddForm(!showAddForm)} style={{
+            padding: "7px 16px", borderRadius: 8, border: "none", cursor: "pointer",
+            fontSize: 12, fontWeight: 600, background: COLORS.primary, color: "#fff",
+          }}>＋ 資材を追加</button>
+        </div>
+        <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 700 }}>
+            <thead>
+              <tr style={{ background: COLORS.surfaceAlt }}>
+                <th style={headerStyle("id")} onClick={() => handleSort("id")}>ID</th>
+                <th style={headerStyle("name")} onClick={() => handleSort("name")}>資材名</th>
+                <th style={headerStyle("category")} onClick={() => handleSort("category")}>カテゴリ</th>
+                <th style={{ ...headerStyle("stock"), textAlign: "right" }} onClick={() => handleSort("stock")}>総在庫</th>
+                <th style={{ ...headerStyle("rented"), textAlign: "right" }} onClick={() => handleSort("rented")}>貸出中</th>
+                <th style={{ ...headerStyle(null), textAlign: "right" }}>空き</th>
+                <th style={{ ...headerStyle("price"), textAlign: "right" }} onClick={() => handleSort("price")}>単価/日</th>
+                <th style={{ ...headerStyle(null), textAlign: "center" }}>稼働率</th>
+                <th style={{ ...headerStyle(null), textAlign: "center", width: 40 }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map(m => {
+                const available = m.stock - m.rented;
+                const rate = m.stock > 0 ? Math.round((m.rented / m.stock) * 100) : 0;
+                const barColor = rate > 80 ? COLORS.danger : rate > 60 ? COLORS.warning : COLORS.primary;
+                return (
+                  <tr key={m.id} style={{ borderBottom: `1px solid ${COLORS.border}` }}>
+                    <td style={{ padding: "10px 12px", fontSize: 12, color: COLORS.textDim, fontFamily: "monospace" }}>{m.id}</td>
+                    <td style={{ padding: "10px 12px", fontSize: 13, color: COLORS.text, fontWeight: 500 }}>{m.name}</td>
+                    <td style={{ padding: "10px 12px" }}>
+                      <span style={{
+                        fontSize: 11, padding: "2px 8px", borderRadius: 4,
+                        background: COLORS.surfaceAlt, color: COLORS.textMuted, border: `1px solid ${COLORS.border}`,
+                      }}>{m.category}</span>
+                    </td>
+                    <EditableCell value={m.stock} unit={m.unit} onChange={v => updateMaterial(m.id, "stock", v)} />
+                    <EditableCell value={m.rented} unit={m.unit} onChange={v => updateMaterial(m.id, "rented", v)} color={COLORS.primary} fontWeight={600} />
+                    <td style={{ padding: "10px 12px", fontSize: 13, color: available < 10 ? COLORS.danger : COLORS.success, textAlign: "right", fontWeight: 600 }}>
+                      {available}{m.unit}
+                    </td>
+                    <EditableCell value={m.price} suffix="¥" onChange={v => updateMaterial(m.id, "price", v)} />
+                    <td style={{ padding: "10px 12px", width: 120 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ flex: 1, height: 6, background: COLORS.surfaceAlt, borderRadius: 3, overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${rate}%`, background: barColor, borderRadius: 3 }} />
+                        </div>
+                        <span style={{ fontSize: 11, color: barColor, fontWeight: 600, minWidth: 30, textAlign: "right" }}>{rate}%</span>
+                      </div>
+                    </td>
+                    <td style={{ padding: "10px 4px", textAlign: "center" }}>
+                      <button onClick={() => deleteMaterial(m.id)} title="削除" style={{
+                        background: "transparent", border: "none", cursor: "pointer",
+                        color: COLORS.textDim, fontSize: 14, padding: 4, borderRadius: 4, transition: "all 0.15s",
+                      }}
+                        onMouseEnter={e => { e.currentTarget.style.color = COLORS.danger; e.currentTarget.style.background = COLORS.dangerGlow; }}
+                        onMouseLeave={e => { e.currentTarget.style.color = COLORS.textDim; e.currentTarget.style.background = "transparent"; }}
+                      >🗑</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Customer Management ---
+const Customers = ({ customers, rentals }) => {
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {customers.map(c => {
+        const customerRentals = rentals.filter(r => r.customerId === c.id);
+        const totalRevenue = customerRentals.reduce((sum, r) => {
+          const days = Math.ceil((new Date(r.endDate) - new Date(r.startDate)) / (1000 * 60 * 60 * 24));
+          return sum + r.dailyTotal * days;
+        }, 0);
+        const isOpen = selectedCustomer === c.id;
+
+        return (
+          <div key={c.id} onClick={() => setSelectedCustomer(isOpen ? null : c.id)}
+            style={{
+              background: COLORS.surface, borderRadius: 12, border: `1px solid ${COLORS.border}`,
+              overflow: "hidden", cursor: "pointer", transition: "all 0.2s",
+            }}>
+            <div style={{ padding: "16px 20px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 600, color: COLORS.text }}>{c.name}</div>
+                  <div style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 4 }}>
+                    担当：{c.contact}
+                  </div>
+                  <a href={`tel:${c.phone}`} onClick={e => e.stopPropagation()} style={{ fontSize: 12, color: COLORS.primary, textDecoration: "none", fontWeight: 600, display: "inline-block", marginTop: 2 }}>📞 {c.phone}</a>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 11, color: COLORS.textDim }}>取引総額</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: COLORS.accent }}>¥{fmt(totalRevenue)}</div>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                {customerRentals.length > 0 ? (
+                  customerRentals.map(r => (
+                    <StatusBadge key={r.id} status={r.status} />
+                  ))
+                ) : (
+                  <span style={{ fontSize: 12, color: COLORS.textDim }}>現在のレンタルなし</span>
+                )}
+              </div>
+            </div>
+
+            {isOpen && customerRentals.length > 0 && (
+              <div style={{ borderTop: `1px solid ${COLORS.border}`, padding: "14px 20px", background: COLORS.surfaceAlt }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.textMuted, marginBottom: 10 }}>レンタル履歴</div>
+                {customerRentals.map(r => (
+                  <div key={r.id} style={{
+                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                    padding: "8px 0", borderBottom: `1px solid ${COLORS.border}`,
+                  }}>
+                    <div>
+                      <div style={{ fontSize: 13, color: COLORS.text }}>{r.site}</div>
+                      <div style={{ fontSize: 11, color: COLORS.textDim }}>{r.startDate} 〜 {r.endDate}</div>
+                    </div>
+                    <StatusBadge status={r.status} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// --- Task Management (PDCA) ---
+const STAFF = ["山本課長", "佐々木主任", "田村リーダー", "小林部長", "自分で判断"];
+
+const initialTasks = [
+  { id: "T001", title: "大成建設 田中様へ電話", desc: "栄タワー案件の追加資材について確認", priority: "高", status: "未着手", category: "電話", dueTime: "09:00", notes: [], createdAt: "2026-03-25 08:00",
+    script: "お世話になっております、YSKサポートの○○です。\n栄タワー新築工事の件でご連絡いたしました。\n\n■確認事項：\n・追加の壁面パネル 10枚の貸出可否\n・納品希望日（来週月曜で可能か）\n・現場搬入口の確認\n\n■先方の状況：\n・3/1から貸出中、4/30返却予定\n・日額12,000円で契約中" },
+  { id: "T002", title: "鹿島建設 延滞分の回収確認", desc: "千種駅前ビル改修 - 返却期限超過。督促と返却日程の確認", priority: "高", status: "未着手", category: "電話", dueTime: "09:30", notes: [], createdAt: "2026-03-25 08:00",
+    script: "お世話になっております、YSKサポートの○○です。\n千種駅前ビル改修の件でご連絡いたしました。\n\n■状況：\n・返却期限：3/20（5日超過中）\n・貸出品：床養生マット40枚、養生テープ100巻\n・日額：16,000円（延滞分加算中）\n\n■確認事項：\n・返却予定日の確定\n・延長の場合は延長契約書が必要\n・追加料金の発生について了承いただく" },
+  { id: "T003", title: "清水建設向け見積書作成", desc: "熱田神宮前マンション - 延長分の見積書", priority: "中", status: "未着手", category: "書類", dueTime: "11:00", notes: [], createdAt: "2026-03-25 08:00" },
+  { id: "T004", title: "壁面パネル在庫チェック", desc: "来週の出庫予定に対して在庫が足りるか確認", priority: "中", status: "未着手", category: "在庫", dueTime: "13:00", notes: [], createdAt: "2026-03-25 08:00" },
+  { id: "T005", title: "竹中工務店 請求書送付", desc: "伏見オフィス内装 - 3月分レンタル請求書をメールで送付", priority: "低", status: "未着手", category: "書類", dueTime: "15:00", notes: [], createdAt: "2026-03-25 08:00" },
+  { id: "T006", title: "養生テープ発注", desc: "在庫残少 - 業者に500巻発注", priority: "低", status: "未着手", category: "発注", dueTime: "16:00", notes: [], createdAt: "2026-03-25 08:00" },
+];
+
+const TaskManager = ({ addLog }) => {
+  const [tasks, setTasks] = useState(initialTasks);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [rescheduleInput, setRescheduleInput] = useState({});
+  const [confirmInput, setConfirmInput] = useState({});
+  const [showScript, setShowScript] = useState({});
+  const [scriptMemo, setScriptMemo] = useState({});
+  const [copyFeedback, setCopyFeedback] = useState({});
+  const [callResultMode, setCallResultMode] = useState({});
+  const [callResultTime, setCallResultTime] = useState({});
+  const [callResultPerson, setCallResultPerson] = useState({});
+  const [callEscalateTime, setCallEscalateTime] = useState({});
+  const [filter, setFilter] = useState("active");
+
+  // Helper: upsert note by prefix (replace existing or add new)
+  const upsertNote = (notes, prefix, newNote) => {
+    const idx = notes.findIndex(n => n.text.startsWith(prefix));
+    if (idx >= 0) {
+      const updated = [...notes];
+      updated[idx] = newNote;
+      return updated;
+    }
+    return [...notes, newNote];
+  };
+
+  // Helper: upsert 📞 memo
+  const upsertCallMemo = (notes, memo) => {
+    if (!memo) return notes;
+    const timeStr = new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+    return upsertNote(notes, "📞 ", { text: `📞 ${memo}`, time: timeStr });
+  };
+
+  const priorityConfig = {
+    "高": { bg: COLORS.dangerGlow, color: COLORS.danger, border: "rgba(239,68,68,0.3)", icon: "🔴" },
+    "中": { bg: COLORS.warningGlow, color: COLORS.warning, border: "rgba(245,158,11,0.3)", icon: "🟡" },
+    "低": { bg: COLORS.primaryGlow, color: COLORS.primary, border: "rgba(59,130,246,0.3)", icon: "🔵" },
+  };
+
+  const categoryIcons = { "電話": "📞", "書類": "📄", "在庫": "📦", "発注": "🛒", "訪問": "🚗", "その他": "📌" };
+
+  const activeTasks = tasks.filter(t => t.status !== "完了").sort((a, b) => {
+    const pOrder = { "高": 0, "中": 1, "低": 2 };
+    if (pOrder[a.priority] !== pOrder[b.priority]) return pOrder[a.priority] - pOrder[b.priority];
+    return (a.dueTime || "99:99").localeCompare(b.dueTime || "99:99");
+  });
+  const completedTasks = tasks.filter(t => t.status === "完了");
+  const displayTasks = filter === "active" ? activeTasks : filter === "completed" ? completedTasks : tasks;
+
+  const handleComplete = (id) => {
+    const task = tasks.find(t => t.id === id);
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, status: "完了", completedAt: new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) } : t));
+    addLog("タスク完了", `「${task.title}」を完了`);
+  };
+
+  const handleStart = (id) => {
+    const task = tasks.find(t => t.id === id);
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, status: "対応中" } : t));
+    addLog("タスク着手", `「${task.title}」に着手`);
+  };
+
+  const handleHold = (id) => {
+    const task = tasks.find(t => t.id === id);
+    setTasks(prev => prev.map(t => t.id === id ? {
+      ...t,
+      status: "未着手",
+      notes: [...t.notes, { text: "→ 保留に戻す", time: new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) }]
+    } : t));
+    addLog("タスク保留", `「${task.title}」を保留に戻す`);
+  };
+
+  const handleConfirm = (id) => {
+    const person = confirmInput[id];
+    if (!person) return;
+    const task = tasks.find(t => t.id === id);
+    const timeStr = new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+    setTasks(prev => prev.map(t => t.id === id ? {
+      ...t,
+      notes: upsertNote(t.notes, "📋 ", { text: `📋 ${person} に確認依頼`, time: timeStr, type: "confirm" })
+    } : t));
+    setConfirmInput(prev => ({ ...prev, [id]: "" }));
+    addLog("確認依頼", `「${task.title}」→ ${person} に確認依頼`);
+  };
+
+  const handleReschedule = (id) => {
+    const newTime = rescheduleInput[id];
+    if (!newTime) return;
+    const task = tasks.find(t => t.id === id);
+    const timeStr = new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+    setTasks(prev => prev.map(t => t.id === id ? {
+      ...t,
+      status: "未着手",
+      dueTime: newTime,
+      notes: upsertNote(t.notes, "→ ", { text: `→ ${newTime} に再対応`, time: timeStr })
+    } : t));
+    setRescheduleInput(prev => ({ ...prev, [id]: "" }));
+    addLog("タスク再対応", `「${task.title}」を ${newTime} に変更`);
+  };
+
+  const handleAddTask = (newTask) => {
+    const id = `T${String(Date.now()).slice(-3)}`;
+    setTasks(prev => [{ ...newTask, id, notes: [], createdAt: new Date().toLocaleString("ja-JP") }, ...prev]);
+    addLog("タスク追加", `「${newTask.title}」を追加`);
+    setShowAddForm(false);
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          {[
+            { key: "active", label: `対応中 (${activeTasks.length})` },
+            { key: "completed", label: `完了 (${completedTasks.length})` },
+          ].map(f => (
+            <button key={f.key} onClick={() => setFilter(f.key)} style={{
+              padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer",
+              fontSize: 12, fontWeight: 600,
+              background: filter === f.key ? COLORS.primary : COLORS.surfaceAlt,
+              color: filter === f.key ? "#fff" : COLORS.textMuted,
+            }}>{f.label}</button>
+          ))}
+        </div>
+        <button onClick={() => setShowAddForm(!showAddForm)} style={{
+          padding: "8px 18px", borderRadius: 8, border: "none", cursor: "pointer",
+          fontSize: 13, fontWeight: 600, background: COLORS.primary, color: "#fff",
+        }}>＋ タスク追加</button>
+      </div>
+
+      {/* Add Task Form */}
+      {showAddForm && <AddTaskForm onAdd={handleAddTask} onClose={() => setShowAddForm(false)} />}
+
+      {/* Task Cards */}
+      {displayTasks.length === 0 && (
+        <div style={{ textAlign: "center", padding: 40, color: COLORS.textDim, fontSize: 14 }}>
+          {filter === "active" ? "🎉 すべてのタスクが完了しました！" : "完了タスクはありません"}
+        </div>
+      )}
+
+      {displayTasks.map(task => {
+        const pc = priorityConfig[task.priority];
+        const isCompleted = task.status === "完了";
+        const isActive = task.status === "対応中";
+        const isPending = task.status === "未着手";
+
+        return (
+          <div key={task.id} style={{
+            background: isActive ? `linear-gradient(135deg, ${COLORS.surface}, rgba(59,130,246,0.06))` : COLORS.surface,
+            borderRadius: 12,
+            border: `1px solid ${isCompleted ? COLORS.border : isActive ? COLORS.primary : pc.border}`,
+            borderLeft: isActive ? `4px solid ${COLORS.primary}` : undefined,
+            overflow: "hidden", opacity: isCompleted ? 0.5 : 1,
+            transition: "all 0.3s",
+          }}>
+            <div style={{ padding: "14px 18px" }}>
+              {/* Top Row: Icon+Title | Status+Priority */}
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                {/* Content */}
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                    <div style={{ flex: 1 }}>
+                      {task.dueTime && <div style={{ fontFamily: "monospace", color: isActive ? COLORS.primary : COLORS.textMuted, fontSize: 13, fontWeight: 700, marginBottom: 2 }}>{task.dueTime}</div>}
+                      <div style={{
+                        fontSize: 14, fontWeight: 600, color: COLORS.text,
+                        textDecoration: isCompleted ? "line-through" : "none",
+                      }}>
+                        {categoryIcons[task.category] || "📌"} {task.title}
+                      </div>
+                      <div style={{ fontSize: 12, color: COLORS.textMuted, marginTop: 3 }}>{task.desc}</div>
+                    </div>
+
+                    {/* Status + Priority badges */}
+                    <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
+                      {isActive && (
+                        <span style={{
+                          fontSize: 11, padding: "3px 10px", borderRadius: 6, fontWeight: 600,
+                          background: COLORS.primaryGlow, color: COLORS.primary,
+                          border: `1px solid rgba(59,130,246,0.3)`,
+                        }}>対応中</span>
+                      )}
+                      {isPending && (
+                        <span style={{
+                          fontSize: 11, padding: "3px 10px", borderRadius: 6, fontWeight: 600,
+                          background: COLORS.surfaceAlt, color: COLORS.textDim,
+                        }}>未着手</span>
+                      )}
+                      {isCompleted && task.completedAt && (
+                        <span style={{ fontSize: 11, color: COLORS.success, fontWeight: 600 }}>✅ {task.completedAt}</span>
+                      )}
+                      <span style={{
+                        fontSize: 11, padding: "2px 8px", borderRadius: 4,
+                        background: pc.bg, color: pc.color, border: `1px solid ${pc.border}`, fontWeight: 600,
+                      }}>{task.priority}</span>
+                    </div>
+                  </div>
+
+                  {/* Notes */}
+                  {task.notes.length > 0 && (
+                    <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+                      {task.notes.map((n, i) => (
+                        <div key={i} style={{
+                          fontSize: 11, color: COLORS.textMuted, padding: "3px 8px",
+                          background: COLORS.surfaceAlt, borderRadius: 4, display: "inline-flex",
+                          alignSelf: "flex-start", gap: 6, alignItems: "center",
+                        }}>
+                          <span style={{ color: COLORS.textDim }}>{n.time}</span>
+                          <span>{n.text}</span>
+                          <span onClick={() => {
+                            const noteText = task.notes[i].text;
+                            if (noteText.startsWith("📞 ")) {
+                              setScriptMemo(prev => ({ ...prev, [task.id]: noteText.replace("📞 ", "") }));
+                            }
+                            setTasks(prev => prev.map(t => t.id === task.id
+                              ? { ...t, notes: t.notes.filter((_, idx) => idx !== i) }
+                              : t
+                            ));
+                          }} style={{
+                            cursor: "pointer", color: COLORS.textDim, fontSize: 12,
+                            padding: "0 2px", marginLeft: 2, borderRadius: 3, lineHeight: 1,
+                          }}
+                            onMouseEnter={e => e.currentTarget.style.color = COLORS.danger}
+                            onMouseLeave={e => e.currentTarget.style.color = COLORS.textDim}
+                          >✕</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Action Row */}
+                  {isCompleted && (
+                    <div style={{
+                      marginTop: 12, paddingTop: 12, borderTop: `1px solid ${COLORS.border}`,
+                      display: "flex", gap: 8, alignItems: "center",
+                    }}>
+                      <button onClick={() => {
+                        setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: "未着手", completedAt: undefined } : t));
+                        addLog("タスク復元", `「${task.title}」を未着手に戻す`);
+                      }} style={{
+                        padding: "6px 16px", borderRadius: 6, cursor: "pointer",
+                        fontSize: 12, fontWeight: 600,
+                        background: COLORS.surfaceAlt, color: COLORS.textMuted,
+                        border: `1px solid ${COLORS.border}`,
+                      }}>↩ 未着手に戻す</button>
+                    </div>
+                  )}
+                  {!isCompleted && (
+                    <div style={{
+                      marginTop: 12, paddingTop: 12, borderTop: `1px solid ${COLORS.border}`,
+                      display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap",
+                    }}>
+                      {/* Status Buttons */}
+                      {isPending && (
+                        <button onClick={() => handleStart(task.id)} style={{
+                          padding: "6px 16px", borderRadius: 6, border: "none", cursor: "pointer",
+                          fontSize: 12, fontWeight: 600, background: COLORS.primary, color: "#fff",
+                        }}>▶ 着手する</button>
+                      )}
+                      {isActive && (
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button onClick={() => handleComplete(task.id)} style={{
+                            padding: "6px 16px", borderRadius: 6, border: "none", cursor: "pointer",
+                            fontSize: 12, fontWeight: 600, background: COLORS.success, color: "#fff",
+                          }}>✓ 完了</button>
+                          <button onClick={() => handleHold(task.id)} style={{
+                            padding: "6px 16px", borderRadius: 6, border: `1px solid ${COLORS.border}`, cursor: "pointer",
+                            fontSize: 12, fontWeight: 600, background: COLORS.surfaceAlt, color: COLORS.textMuted,
+                          }}>⏸ 保留</button>
+                        </div>
+                      )}
+
+                      {/* Script toggle - only for phone tasks */}
+                      {task.category === "電話" && task.script && (
+                        <button onClick={() => {
+                          const willOpen = !showScript[task.id];
+                          setShowScript(prev => ({ ...prev, [task.id]: willOpen }));
+                          if (willOpen) {
+                            if (!scriptMemo[task.id]) {
+                              const phoneNote = task.notes.find(n => n.text.startsWith("📞 "));
+                              if (phoneNote) {
+                                setScriptMemo(prev => ({ ...prev, [task.id]: phoneNote.text.replace("📞 ", "") }));
+                              }
+                            }
+                            const confirmNote = task.notes.find(n => n.text.startsWith("📋 "));
+                            if (confirmNote) {
+                              const m = confirmNote.text.match(/^📋 (.+?) に確認依頼(?:\s*→\s*(\S+)\s*に再対応)?$/);
+                              if (m) {
+                                setCallResultPerson(prev => ({ ...prev, [task.id]: m[1] }));
+                                if (m[2]) setCallEscalateTime(prev => ({ ...prev, [task.id]: m[2] }));
+                              }
+                            }
+                          }
+                        }} style={{
+                          padding: "6px 12px", borderRadius: 8, cursor: "pointer",
+                          fontSize: 12, fontWeight: 600,
+                          background: showScript[task.id] ? "rgba(16,185,129,0.15)" : COLORS.surfaceAlt,
+                          color: showScript[task.id] ? COLORS.success : COLORS.textMuted,
+                          border: `1px solid ${showScript[task.id] ? "rgba(16,185,129,0.4)" : COLORS.border}`,
+                        }}>{showScript[task.id] ? "📞 スクリプト ▲" : "📞 スクリプト ▼"}</button>
+                      )}
+
+                      {/* Divider */}
+                      <div style={{ width: 1, height: 20, background: COLORS.border }} />
+
+                      {/* Reschedule - native input with 🕐 overlaid on native clock */}
+                      <div style={{
+                        display: "flex", alignItems: "center", borderRadius: 8, overflow: "hidden",
+                        border: `1px solid rgba(245,158,11,0.4)`,
+                        background: COLORS.surfaceAlt,
+                      }}>
+                        <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                          <style>{`
+                            .reschedule-time::-webkit-calendar-picker-indicator {
+                              opacity: 0;
+                              position: absolute;
+                              left: 0;
+                              width: 100%;
+                              height: 100%;
+                              cursor: pointer;
+                            }
+                          `}</style>
+                          <input type="time" className="reschedule-time"
+                            value={rescheduleInput[task.id] || (() => {
+                              const now = new Date();
+                              return `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+                            })()}
+                            onChange={e => setRescheduleInput(prev => ({ ...prev, [task.id]: e.target.value }))}
+                            style={{
+                              padding: "6px 24px 6px 12px", fontSize: 15, fontFamily: "monospace", fontWeight: 700,
+                              background: "transparent", border: "none",
+                              color: COLORS.warning, outline: "none", width: 100, cursor: "pointer",
+                              colorScheme: "dark",
+                            }} />
+                          <span style={{
+                            position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)",
+                            fontSize: 16, pointerEvents: "none",
+                          }}>🕐</span>
+                        </div>
+                        <button onClick={() => {
+                          if (!rescheduleInput[task.id]) {
+                            const now = new Date();
+                            const val = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+                            setRescheduleInput(prev => ({ ...prev, [task.id]: val }));
+                            setTimeout(() => handleReschedule(task.id), 0);
+                          } else {
+                            handleReschedule(task.id);
+                          }
+                        }} style={{
+                          padding: "6px 14px", border: "none", cursor: "pointer",
+                          fontSize: 12, fontWeight: 600,
+                          background: COLORS.warningGlow, color: COLORS.warning,
+                          whiteSpace: "nowrap", borderLeft: `1px solid ${COLORS.border}`,
+                        }}>再対応</button>
+                      </div>
+
+                      {/* Confirm - person select + button */}
+                      <div style={{
+                        display: "flex", alignItems: "center", borderRadius: 8, overflow: "hidden",
+                        border: `1px solid rgba(99,102,241,0.4)`,
+                        background: COLORS.surfaceAlt,
+                      }}>
+                        <select value={confirmInput[task.id] || ""}
+                          onChange={e => setConfirmInput(prev => ({ ...prev, [task.id]: e.target.value }))}
+                          style={{
+                            padding: "6px 8px 6px 10px", fontSize: 12, fontWeight: 600,
+                            background: "transparent", border: "none",
+                            color: confirmInput[task.id] ? COLORS.info : COLORS.textDim,
+                            outline: "none", cursor: "pointer", minWidth: 100,
+                          }}>
+                          <option value="" style={{ background: COLORS.surface, color: COLORS.textDim }}>確認先を選択</option>
+                          {STAFF.map(s => (
+                            <option key={s} value={s} style={{ background: COLORS.surface, color: COLORS.text }}>{s}</option>
+                          ))}
+                        </select>
+                        <button onClick={() => handleConfirm(task.id)} style={{
+                          padding: "6px 12px", border: "none", cursor: "pointer",
+                          fontSize: 12, fontWeight: 600,
+                          background: confirmInput[task.id] ? "rgba(99,102,241,0.15)" : "transparent",
+                          color: confirmInput[task.id] ? COLORS.info : COLORS.textDim,
+                          whiteSpace: "nowrap", borderLeft: `1px solid ${COLORS.border}`,
+                        }}>📋 確認依頼</button>
+                      </div>
+
+                    </div>
+                  )}
+
+                  {/* Script Panel */}
+                  {showScript[task.id] && task.script && (
+                    <div style={{
+                      marginTop: 10, padding: 14, borderRadius: 8,
+                      background: "rgba(16,185,129,0.06)",
+                      border: `1px solid rgba(16,185,129,0.2)`,
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: COLORS.success }}>📞 トークスクリプト</span>
+                        {(() => {
+                          const cust = initialCustomers.find(c => task.title.includes(c.name.split("　")[0].split(" ")[0]));
+                          return cust ? (
+                            <a href={`tel:${cust.phone}`} onClick={e => e.stopPropagation()} style={{
+                              padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer",
+                              fontSize: 12, fontWeight: 600, background: COLORS.success, color: "#fff",
+                              textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4,
+                            }}>📱 {cust.contact}に発信</a>
+                          ) : null;
+                        })()}
+                      </div>
+                      <pre style={{
+                        fontSize: 12, color: COLORS.text, lineHeight: 1.7,
+                        margin: 0, whiteSpace: "pre-wrap", fontFamily: "'Noto Sans JP', sans-serif",
+                      }}>{task.script}</pre>
+
+                      {/* Call Memo */}
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid rgba(16,185,129,0.2)` }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: COLORS.warning }}>📝 通話メモ</span>
+                          <button onClick={() => {
+                            const text = scriptMemo[task.id] || "";
+                            if (!text) return;
+                            navigator.clipboard.writeText(text).then(() => {
+                              setCopyFeedback(prev => ({ ...prev, [task.id]: true }));
+                              setTimeout(() => setCopyFeedback(prev => ({ ...prev, [task.id]: false })), 2000);
+                            }).catch(() => {
+                              const ta = document.createElement("textarea");
+                              ta.value = text;
+                              document.body.appendChild(ta);
+                              ta.select();
+                              document.execCommand("copy");
+                              document.body.removeChild(ta);
+                              setCopyFeedback(prev => ({ ...prev, [task.id]: true }));
+                              setTimeout(() => setCopyFeedback(prev => ({ ...prev, [task.id]: false })), 2000);
+                            });
+                          }} style={{
+                            padding: "4px 12px", borderRadius: 6, border: "none", cursor: "pointer",
+                            fontSize: 11, fontWeight: 600,
+                            background: copyFeedback[task.id] ? COLORS.successGlow : COLORS.surfaceAlt,
+                            color: copyFeedback[task.id] ? COLORS.success : COLORS.textMuted,
+                            transition: "all 0.2s",
+                          }}>{copyFeedback[task.id] ? "✓ コピーしました" : "📋 コピー"}</button>
+                        </div>
+                        <textarea
+                          value={scriptMemo[task.id] || ""}
+                          onChange={e => setScriptMemo(prev => ({ ...prev, [task.id]: e.target.value }))}
+                          placeholder={"通話中のメモをここに入力…\n例：田中様不在、折り返し14時以降希望\n例：追加10枚OK、納品は来週水曜"}
+                          style={{
+                            width: "100%", minHeight: 80, padding: "10px 12px", borderRadius: 8,
+                            fontSize: 12, lineHeight: 1.7, resize: "vertical",
+                            background: COLORS.surfaceAlt, border: `1px solid ${COLORS.border}`,
+                            color: COLORS.text, outline: "none", boxSizing: "border-box",
+                            fontFamily: "'Noto Sans JP', sans-serif",
+                          }} />
+
+                        {/* Call Result Actions */}
+                        <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid rgba(16,185,129,0.15)` }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: COLORS.text, marginBottom: 10 }}>この通話の結果は？</div>
+
+                          {/* 3 choice buttons */}
+                          <div style={{ display: "flex", gap: 8, marginBottom: callResultMode[task.id] ? 10 : 0, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                            {[
+                              { key: "done", label: "✓ 完了", color: COLORS.success, bg: COLORS.successGlow, border: "rgba(16,185,129,0.4)" },
+                              { key: "retry", label: "🔄 再対応", color: COLORS.warning, bg: COLORS.warningGlow, border: "rgba(245,158,11,0.4)" },
+                              { key: "escalate", label: "📋 確認依頼", color: COLORS.info, bg: "rgba(99,102,241,0.12)", border: "rgba(99,102,241,0.4)" },
+                            ].map(opt => {
+                              const isSelected = callResultMode[task.id] === opt.key;
+                              return (
+                                <button key={opt.key} onClick={() => setCallResultMode(prev => ({ ...prev, [task.id]: isSelected ? null : opt.key }))}
+                                  style={{
+                                    padding: "8px 14px", borderRadius: 8, cursor: "pointer",
+                                    fontSize: 12, fontWeight: 600, flex: 1, whiteSpace: "nowrap", minWidth: "fit-content",
+                                    background: isSelected ? opt.bg : COLORS.surfaceAlt,
+                                    color: isSelected ? opt.color : COLORS.textMuted,
+                                    border: `1px solid ${isSelected ? opt.border : COLORS.border}`,
+                                    transition: "all 0.2s",
+                                  }}>{opt.label}</button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Sub-flow: Done */}
+                          {callResultMode[task.id] === "done" && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span style={{ fontSize: 12, color: COLORS.textMuted }}>メモを記録してタスクを完了します</span>
+                              <button onClick={() => {
+                                const memo = scriptMemo[task.id];
+                                if (memo) {
+                                  setTasks(prev => prev.map(t => t.id === task.id ? {
+                                    ...t, notes: upsertCallMemo(t.notes, memo)
+                                  } : t));
+                                }
+                                handleComplete(task.id);
+                                setShowScript(prev => ({ ...prev, [task.id]: false }));
+                                setCallResultMode(prev => ({ ...prev, [task.id]: null }));
+                              }} style={{
+                                padding: "8px 20px", borderRadius: 8, border: "none", cursor: "pointer",
+                                fontSize: 13, fontWeight: 600, background: COLORS.success, color: "#fff",
+                              }}>完了にする</button>
+                            </div>
+                          )}
+
+                          {/* Sub-flow: Retry */}
+                          {callResultMode[task.id] === "retry" && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                              <span style={{ fontSize: 12, color: COLORS.textMuted }}>再対応する時刻：</span>
+                              <div style={{
+                                display: "flex", alignItems: "center", borderRadius: 8, overflow: "hidden",
+                                border: `1px solid rgba(245,158,11,0.4)`, background: COLORS.surfaceAlt,
+                              }}>
+                                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                                  <style>{`
+                                    .result-time::-webkit-calendar-picker-indicator {
+                                      opacity: 0; position: absolute; left: 0; width: 100%; height: 100%; cursor: pointer;
+                                    }
+                                  `}</style>
+                                  <input type="time" className="result-time"
+                                    value={callResultTime[task.id] || (() => {
+                                      const now = new Date();
+                                      now.setHours(now.getHours() + 1);
+                                      return `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+                                    })()}
+                                    onChange={e => setCallResultTime(prev => ({ ...prev, [task.id]: e.target.value }))}
+                                    style={{
+                                      padding: "6px 24px 6px 12px", fontSize: 15, fontFamily: "monospace", fontWeight: 700,
+                                      background: "transparent", border: "none",
+                                      color: COLORS.warning, outline: "none", width: 100, cursor: "pointer",
+                                      colorScheme: "dark",
+                                    }} />
+                                  <span style={{
+                                    position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)",
+                                    fontSize: 16, pointerEvents: "none",
+                                  }}>🕐</span>
+                                </div>
+                              </div>
+                              <button onClick={() => {
+                                const memo = scriptMemo[task.id];
+                                const now = new Date();
+                                now.setHours(now.getHours() + 1);
+                                const defaultTime = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+                                const newTime = callResultTime[task.id] || defaultTime;
+                                const timeStr = new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+                                let newNotes = upsertCallMemo(task.notes, memo);
+                                newNotes = upsertNote(newNotes, "→ ", { text: `→ ${newTime} に再対応`, time: timeStr });
+                                setTasks(prev => prev.map(t => t.id === task.id ? {
+                                  ...t, status: "未着手", dueTime: newTime, notes: newNotes,
+                                } : t));
+                                addLog("タスク再対応", `「${task.title}」を ${newTime} に変更`);
+                                setShowScript(prev => ({ ...prev, [task.id]: false }));
+                                setCallResultMode(prev => ({ ...prev, [task.id]: null }));
+                              }} style={{
+                                padding: "8px 20px", borderRadius: 8, border: "none", cursor: "pointer",
+                                fontSize: 13, fontWeight: 600, background: COLORS.warning, color: "#fff",
+                              }}>設定する</button>
+                            </div>
+                          )}
+
+                          {/* Sub-flow: Escalate */}
+                          {callResultMode[task.id] === "escalate" && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                              <span style={{ fontSize: 12, color: COLORS.textMuted }}>確認先：</span>
+                              <select value={callResultPerson[task.id] || ""}
+                                onChange={e => setCallResultPerson(prev => ({ ...prev, [task.id]: e.target.value }))}
+                                style={{
+                                  padding: "6px 10px", borderRadius: 8, fontSize: 13, fontWeight: 600,
+                                  background: COLORS.surfaceAlt, border: `1px solid rgba(99,102,241,0.4)`,
+                                  color: callResultPerson[task.id] ? COLORS.info : COLORS.textDim,
+                                  outline: "none", cursor: "pointer",
+                                }}>
+                                <option value="" style={{ background: COLORS.surface, color: COLORS.textDim }}>選択…</option>
+                                {STAFF.map(s => (
+                                  <option key={s} value={s} style={{ background: COLORS.surface, color: COLORS.text }}>{s}</option>
+                                ))}
+                              </select>
+
+                              <span style={{ fontSize: 12, color: COLORS.textMuted }}>再対応：</span>
+                              <div style={{
+                                display: "flex", alignItems: "center", borderRadius: 8, overflow: "hidden",
+                                border: `1px solid rgba(99,102,241,0.4)`, background: COLORS.surfaceAlt,
+                              }}>
+                                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                                  <style>{`
+                                    .escalate-time::-webkit-calendar-picker-indicator {
+                                      opacity: 0; position: absolute; left: 0; width: 100%; height: 100%; cursor: pointer;
+                                    }
+                                  `}</style>
+                                  <input type="time" className="escalate-time"
+                                    value={callEscalateTime[task.id] || (() => {
+                                      const now = new Date();
+                                      now.setHours(now.getHours() + 1);
+                                      return `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+                                    })()}
+                                    onChange={e => setCallEscalateTime(prev => ({ ...prev, [task.id]: e.target.value }))}
+                                    style={{
+                                      padding: "6px 24px 6px 12px", fontSize: 15, fontFamily: "monospace", fontWeight: 700,
+                                      background: "transparent", border: "none",
+                                      color: COLORS.info, outline: "none", width: 100, cursor: "pointer",
+                                      colorScheme: "dark",
+                                    }} />
+                                  <span style={{
+                                    position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)",
+                                    fontSize: 16, pointerEvents: "none",
+                                  }}>🕐</span>
+                                </div>
+                              </div>
+
+                              <button onClick={() => {
+                                const person = callResultPerson[task.id];
+                                if (!person) return;
+                                const memo = scriptMemo[task.id];
+                                const now = new Date();
+                                now.setHours(now.getHours() + 1);
+                                const defaultTime = `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+                                const newTime = callEscalateTime[task.id] || defaultTime;
+                                const timeStr = new Date().toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" });
+                                let newNotes = upsertCallMemo(task.notes, memo);
+                                newNotes = upsertNote(newNotes, "📋 ", { text: `📋 ${person} に確認依頼 → ${newTime} に再対応`, time: timeStr, type: "confirm" });
+                                setTasks(prev => prev.map(t => t.id === task.id ? {
+                                  ...t, status: "未着手", dueTime: newTime, notes: newNotes,
+                                } : t));
+                                addLog("確認依頼", `「${task.title}」→ ${person} に確認依頼（${newTime}再対応）`);
+                                setShowScript(prev => ({ ...prev, [task.id]: false }));
+                                setCallResultMode(prev => ({ ...prev, [task.id]: null }));
+                                setCallResultPerson(prev => ({ ...prev, [task.id]: "" }));
+                                setCallEscalateTime(prev => ({ ...prev, [task.id]: "" }));
+                              }} style={{
+                                padding: "8px 20px", borderRadius: 8, border: "none", cursor: "pointer",
+                                fontSize: 13, fontWeight: 600,
+                                background: callResultPerson[task.id] ? COLORS.info : COLORS.surfaceAlt,
+                                color: callResultPerson[task.id] ? "#fff" : COLORS.textDim,
+                              }}>依頼する</button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// --- Add Task Form ---
+const AddTaskForm = ({ onAdd, onClose }) => {
+  const [form, setForm] = useState({ title: "", desc: "", priority: "中", category: "電話", status: "未着手", dueTime: "", script: "" });
+  const inputStyle = {
+    width: "100%", padding: "8px 12px", borderRadius: 8, fontSize: 13,
+    background: COLORS.surfaceAlt, border: `1px solid ${COLORS.border}`,
+    color: COLORS.text, outline: "none", boxSizing: "border-box",
+  };
+  const labelStyle = { fontSize: 11, color: COLORS.textMuted, marginBottom: 4, display: "block", fontWeight: 500 };
+
+  return (
+    <div style={{
+      background: COLORS.surface, borderRadius: 12, padding: 20,
+      border: `1px solid ${COLORS.primaryGlow}`, borderTop: `3px solid ${COLORS.primary}`,
+    }}>
+      <div style={{ fontSize: 15, fontWeight: 600, color: COLORS.text, marginBottom: 14 }}>新規タスク</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label style={labelStyle}>タイトル</label>
+          <input style={inputStyle} placeholder="例：大成建設 田中様へ電話" value={form.title}
+            onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
+        </div>
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label style={labelStyle}>内容</label>
+          <input style={inputStyle} placeholder="例：追加資材の見積もり確認" value={form.desc}
+            onChange={e => setForm(p => ({ ...p, desc: e.target.value }))} />
+        </div>
+        <div>
+          <label style={labelStyle}>優先度</label>
+          <select style={inputStyle} value={form.priority} onChange={e => setForm(p => ({ ...p, priority: e.target.value }))}>
+            <option value="高">高</option><option value="中">中</option><option value="低">低</option>
+          </select>
+        </div>
+        <div>
+          <label style={labelStyle}>カテゴリ</label>
+          <select style={inputStyle} value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}>
+            {["電話", "書類", "在庫", "発注", "訪問", "その他"].map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div>
+          <label style={labelStyle}>予定時刻</label>
+          <input type="time" style={inputStyle} value={form.dueTime}
+            onChange={e => setForm(p => ({ ...p, dueTime: e.target.value }))} />
+        </div>
+        {form.category === "電話" && (
+          <div style={{ gridColumn: "1 / -1" }}>
+            <label style={labelStyle}>📞 トークスクリプト（任意）</label>
+            <textarea style={{ ...inputStyle, minHeight: 100, resize: "vertical" }}
+              placeholder={"お世話になっております、YSKサポートの○○です。\n\n■確認事項：\n・\n・"}
+              value={form.script}
+              onChange={e => setForm(p => ({ ...p, script: e.target.value }))} />
+          </div>
+        )}
+      </div>
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+        <button onClick={onClose} style={{
+          padding: "8px 18px", borderRadius: 8, border: `1px solid ${COLORS.border}`,
+          background: "transparent", color: COLORS.textMuted, cursor: "pointer", fontSize: 13,
+        }}>キャンセル</button>
+        <button onClick={() => { if (form.title) onAdd(form); }} style={{
+          padding: "8px 18px", borderRadius: 8, border: "none",
+          background: COLORS.primary, color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 600,
+        }}>追加する</button>
+      </div>
+    </div>
+  );
+};
+
+// --- Change Log ---
+const ChangeLog = ({ logs }) => {
+  const typeConfig = {
+    "在庫変更": { icon: "📦", color: COLORS.primary },
+    "レンタル登録": { icon: "📋", color: COLORS.success },
+    "返却処理": { icon: "↩️", color: COLORS.warning },
+    "タスク完了": { icon: "✅", color: COLORS.success },
+    "タスク着手": { icon: "▶️", color: COLORS.primary },
+    "タスク保留": { icon: "⏸", color: COLORS.textMuted },
+    "確認依頼": { icon: "📋", color: COLORS.info },
+    "タスク追加": { icon: "➕", color: COLORS.primary },
+    "タスク再対応": { icon: "🔄", color: COLORS.warning },
+    "タスク復元": { icon: "↩️", color: COLORS.textMuted },
+    "資材追加": { icon: "📦", color: COLORS.info },
+    "資材削除": { icon: "🗑", color: COLORS.danger },
+  };
+
+  return (
+    <div style={{
+      background: COLORS.surface, borderRadius: 12, border: `1px solid ${COLORS.border}`, overflow: "hidden",
+    }}>
+      <div style={{ padding: "16px 20px", borderBottom: `1px solid ${COLORS.border}` }}>
+        <div style={{ fontSize: 15, fontWeight: 600, color: COLORS.text }}>変更履歴</div>
+        <div style={{ fontSize: 11, color: COLORS.textDim, marginTop: 2 }}>すべての操作が自動的に記録されます</div>
+      </div>
+
+      {logs.length === 0 ? (
+        <div style={{ padding: 40, textAlign: "center", color: COLORS.textDim, fontSize: 13 }}>
+          まだ変更はありません。操作すると自動で記録されます。
+        </div>
+      ) : (
+        <div style={{ padding: "8px 0" }}>
+          {logs.map((log, i) => {
+            const tc = typeConfig[log.type] || { icon: "📝", color: COLORS.textMuted };
+            return (
+              <div key={i} style={{
+                display: "flex", gap: 12, padding: "10px 20px", alignItems: "flex-start",
+                borderBottom: i < logs.length - 1 ? `1px solid ${COLORS.border}` : "none",
+              }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                  background: `${tc.color}15`, display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 14,
+                }}>{tc.icon}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: tc.color }}>{log.type}</span>
+                    <span style={{ fontSize: 11, color: COLORS.textDim, fontFamily: "monospace" }}>{log.time}</span>
+                  </div>
+                  <div style={{ fontSize: 13, color: COLORS.text, marginTop: 2 }}>{log.detail}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// --- Main App ---
+function App() {
+  const [activeTab, setActiveTab] = useState("tasks");
+  const [rentals, setRentals] = useState(initialRentals);
+  const [materials, setMaterials] = useState(initialMaterials);
+  const [time, setTime] = useState(new Date());
+  const [logs, setLogs] = useState([]);
+  const { w } = useWindowSize();
+  const isMobile = w < 768;
+  const isTablet = w >= 768 && w < 1024;
+
+  const addLog = (type, detail) => {
+    const now = new Date();
+    const timeStr = now.toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    setLogs(prev => [{ type, detail, time: timeStr }, ...prev]);
+  };
+
+  // Wrap setRentals to track changes
+  const setRentalsTracked = (updater) => {
+    setRentals(prev => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      // Detect new rental
+      if (next.length > prev.length) {
+        const newOne = next.find(n => !prev.find(p => p.id === n.id));
+        if (newOne) addLog("レンタル登録", `${newOne.customerName}（${newOne.site}）`);
+      }
+      // Detect returned
+      next.forEach(n => {
+        const old = prev.find(p => p.id === n.id);
+        if (old && old.status !== "返却済" && n.status === "返却済") {
+          addLog("返却処理", `${n.customerName}（${n.site}）を返却処理`);
+        }
+      });
+      return next;
+    });
+  };
+
+  // Wrap setMaterials to track changes
+  const setMaterialsTracked = (updater) => {
+    setMaterials(prev => {
+      const next = typeof updater === "function" ? updater(prev) : updater;
+      if (next.length > prev.length) {
+        const newOne = next.find(n => !prev.find(p => p.id === n.id));
+        if (newOne) addLog("資材追加", `「${newOne.name}」を追加（在庫: ${newOne.stock}${newOne.unit}）`);
+      }
+      if (next.length < prev.length) {
+        const removed = prev.find(p => !next.find(n => n.id === p.id));
+        if (removed) addLog("資材削除", `「${removed.name}」を削除`);
+      }
+      next.forEach(n => {
+        const old = prev.find(p => p.id === n.id);
+        if (old) {
+          if (old.stock !== n.stock) addLog("在庫変更", `「${n.name}」の総在庫: ${old.stock} → ${n.stock}`);
+          if (old.rented !== n.rented) addLog("在庫変更", `「${n.name}」の貸出中: ${old.rented} → ${n.rented}`);
+          if (old.price !== n.price) addLog("在庫変更", `「${n.name}」の単価: ¥${old.price} → ¥${n.price}`);
+        }
+      });
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div style={{
+      minHeight: "100vh", background: COLORS.bg, color: COLORS.text,
+      fontFamily: "'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif",
+      paddingBottom: isMobile ? 64 : 0,
+    }}>
+      {/* Header */}
+      <div style={{
+        background: COLORS.surface, borderBottom: `1px solid ${COLORS.border}`,
+        padding: isMobile ? "0 12px" : "0 28px", display: "flex", alignItems: "center", justifyContent: "space-between", height: isMobile ? 48 : 56,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12 }}>
+          <div style={{
+            width: isMobile ? 28 : 32, height: isMobile ? 28 : 32, borderRadius: 8, background: `linear-gradient(135deg, ${COLORS.primary}, ${COLORS.info})`,
+            display: "flex", alignItems: "center", justifyContent: "center", fontSize: isMobile ? 14 : 16, fontWeight: 700, color: "#fff",
+          }}>Y</div>
+          <div>
+            <div style={{ fontSize: isMobile ? 12 : 14, fontWeight: 700, color: COLORS.text, lineHeight: 1.2 }}>YSKサポート</div>
+            {!isMobile && <div style={{ fontSize: 10, color: COLORS.textDim, letterSpacing: "0.05em" }}>養生資材レンタル管理システム</div>}
+          </div>
+        </div>
+        <div style={{ fontSize: isMobile ? 10 : 12, color: COLORS.textMuted }}>
+          {time.toLocaleDateString("ja-JP", { month: "long", day: "numeric", weekday: "short" })}
+          　{time.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}
+        </div>
+      </div>
+
+      <div style={{ display: "flex" }}>
+        {/* Sidebar - PC & Tablet only */}
+        {!isMobile && (
+          <div style={{
+            width: isTablet ? 160 : 200, minHeight: "calc(100vh - 56px)", background: COLORS.surface,
+            borderRight: `1px solid ${COLORS.border}`, padding: isTablet ? "12px 6px" : "16px 10px",
+          }}>
+            {TABS.map(tab => (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+                width: "100%", padding: isTablet ? "8px 10px" : "10px 14px", borderRadius: 8, border: "none",
+                cursor: "pointer", display: "flex", alignItems: "center", gap: isTablet ? 6 : 10,
+                fontSize: isTablet ? 12 : 13, fontWeight: activeTab === tab.id ? 600 : 400,
+                background: activeTab === tab.id ? COLORS.primaryGlow : "transparent",
+                color: activeTab === tab.id ? COLORS.primary : COLORS.textMuted,
+                marginBottom: 4, textAlign: "left", transition: "all 0.2s",
+              }}>
+                <span style={{ fontSize: isTablet ? 14 : 16 }}>{tab.icon}</span>
+                {tab.label}
+              </button>
+            ))}
+
+            <div style={{ borderTop: `1px solid ${COLORS.border}`, margin: "16px 8px", paddingTop: 16 }}>
+              <div style={{ fontSize: 10, color: COLORS.textDim, padding: "0 8px", marginBottom: 8, letterSpacing: "0.1em" }}>システム情報</div>
+              <div style={{ fontSize: 11, color: COLORS.textDim, padding: "4px 8px" }}>Ver 1.1.0</div>
+              <div style={{ fontSize: 11, color: COLORS.textDim, padding: "4px 8px" }}>React + GAS</div>
+              <div style={{ fontSize: 11, color: COLORS.textDim, padding: "4px 8px" }}>
+                <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: COLORS.success, marginRight: 6 }} />
+                オンライン
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Main Content */}
+        <div style={{ flex: 1, padding: isMobile ? 12 : isTablet ? 16 : 24, overflowY: "auto", maxHeight: isMobile ? "calc(100vh - 48px - 64px)" : "calc(100vh - 56px)" }}>
+          <div style={{ marginBottom: isMobile ? 12 : 20 }}>
+            <h1 style={{ fontSize: isMobile ? 16 : 20, fontWeight: 700, margin: 0, color: COLORS.text }}>
+              {TABS.find(t => t.id === activeTab)?.icon} {TABS.find(t => t.id === activeTab)?.label}
+            </h1>
+          </div>
+
+          {activeTab === "dashboard" && <Dashboard rentals={rentals} materials={materials} />}
+          {activeTab === "tasks" && <TaskManager addLog={addLog} />}
+          {activeTab === "rentals" && <RentalManagement rentals={rentals} setRentals={setRentalsTracked} />}
+          {activeTab === "inventory" && <Inventory materials={materials} setMaterials={setMaterialsTracked} />}
+          {activeTab === "customers" && <Customers customers={initialCustomers} rentals={rentals} />}
+          {activeTab === "changelog" && <ChangeLog logs={logs} />}
+        </div>
+      </div>
+
+      {/* Bottom Tab Bar - Mobile only */}
+      {isMobile && (
+        <div style={{
+          position: "fixed", bottom: 0, left: 0, right: 0, height: 64,
+          background: COLORS.surface, borderTop: `1px solid ${COLORS.border}`,
+          display: "flex", alignItems: "center", justifyContent: "space-around",
+          zIndex: 100,
+        }}>
+          {TABS.map(tab => (
+            <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+              flex: 1, border: "none", background: "transparent", cursor: "pointer",
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+              padding: "8px 0",
+            }}>
+              <span style={{
+                fontSize: 20,
+                opacity: activeTab === tab.id ? 1 : 0.4,
+                filter: activeTab === tab.id ? `drop-shadow(0 0 4px ${COLORS.primary})` : "none",
+              }}>{tab.icon}</span>
+              <span style={{
+                fontSize: 9, fontWeight: activeTab === tab.id ? 700 : 400,
+                color: activeTab === tab.id ? COLORS.primary : COLORS.textMuted,
+              }}>{tab.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
